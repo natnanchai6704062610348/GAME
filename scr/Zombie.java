@@ -16,6 +16,7 @@ public class Zombie {
     public void move(){x-=speed;}
     public boolean canHit(long now){if(now-lastHit>820){lastHit=now;return true;}return false;}
     public void hurt(int dmg){hp-=dmg;}
+    public void knockBackFrom(double origin,int distance,int worldWidth){double direction=x+width/2.0>=origin?1:-1;x=Math.max(0,Math.min(worldWidth-width,x+direction*distance));}
     public boolean dead(){return hp<=0;}
     public int getX(){return (int)x;} public int getY(){return 470-height;}
     public int getWidth(){return width;} public int getHeight(){return height;}
@@ -37,3 +38,4 @@ public class Zombie {
     }
 
 }
+

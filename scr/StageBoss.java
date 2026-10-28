@@ -2,7 +2,7 @@ import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 /** Distinct attack patterns per stage, with shared telegraph/recovery lifecycle. */
-public final class StageBoss extends Zombie implements BossCombat {
+public final class StageBoss extends Boss {
     public enum Phase { HUNT, WARNING, ATTACK, RECOVER }
     private static final StageBossArt ART=new StageBossArt();
     private static final BossWalkAtlas WALK=new BossWalkAtlas();
@@ -34,20 +34,20 @@ public final class StageBoss extends Zombie implements BossCombat {
         for(BossHazard h:hazards)h.update();hazards.removeIf(BossHazard::expired);
         if(leapTicks>0){double t=(41-leapTicks)/40.0;x=leapStartX+(leapEndX-leapStartX)*t;leapTicks--;}
         double beforeX=x;
-        if(phase==Phase.HUNT)super.update(p);
+        if(phase==Phase.HUNT)pursue(p);
         walkDistance+=Math.abs(x-beforeX);
         x=Math.max(0,Math.min(worldWidth-width,x));
         if(--ticks>0)return;
         switch(phase){
             case HUNT:
                 targetX=p.getX()+p.getWidth()/2.0;targetY=p.getY()+p.getHeight()/2.0;
-                phase=Phase.WARNING;ticks=hp<maxHp/2?38:52;prepare();break;
+                phase=Phase.WARNING;ticks=isEnraged()?38:52;prepare();break;
             case WARNING: phase=Phase.ATTACK;ticks=level==7?100:60;attack();break;
-            case ATTACK:phase=Phase.RECOVER;ticks=hp<maxHp/2?35:55;break;
-            case RECOVER:phase=Phase.HUNT;ticks=hp<maxHp/2?35:65;break;
+            case ATTACK:phase=Phase.RECOVER;ticks=isEnraged()?35:55;break;
+            case RECOVER:phase=Phase.HUNT;ticks=isEnraged()?35:65;break;
         }
     }
-    private int warningTicks(){return hp<maxHp/2?38:52;}
+    private int warningTicks(){return isEnraged()?38:52;}
     private void zone(double x,double y,int w,int h,int delay,int life){hazards.add(new BossHazard(x,y,w,h,delay,life,color).withSkill(level));}
     private void prepare(){
         int warn=warningTicks();
@@ -73,7 +73,7 @@ public final class StageBoss extends Zombie implements BossCombat {
                 h.vx=(targetX+i*65-h.x)/50.0;h.vy=-8-i*.6;h.gravity=.34;hazards.add(h);
             }break;
             case 8:for(int i=-2;i<=2;i++)shoot(targetX-(x+width/2),targetY-(getY()+55)+i*55,8+level*.2,7,0);break;
-            case 10:for(int i=-1;i<=1;i++)shoot(targetX-(x+width/2),targetY-(getY()+55)+i*100,7,11,0);summons=hp<maxHp/2?3:2;break;
+            case 10:for(int i=-1;i<=1;i++)shoot(targetX-(x+width/2),targetY-(getY()+55)+i*100,7,11,0);summons=isEnraged()?3:2;break;
             default:break;
         }
     }
@@ -107,5 +107,6 @@ public final class StageBoss extends Zombie implements BossCombat {
         switch(level){case 2:return "FLAME SWEEP!";case 3:return "LIGHTNING! MOVE!";case 4:return "POUNCE!";case 5:return "ROCK VOLLEY!";case 6:return "DRAIN! KEEP AWAY!";case 7:return "TOXIC POOLS!";case 8:return "BULLET FAN!";case 9:return "MAGMA FISSURES!";default:return "SWARM + ACID!";}
     }
 }
+
 
 

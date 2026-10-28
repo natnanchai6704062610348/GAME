@@ -13,6 +13,7 @@ public class Player {
     // พลังชีวิตและเกราะ
     private int hp = 100;
     private int armor = 40;
+    private final MutationArmor mutation=new MutationArmor();
 
     // สถานะการเคลื่อนไหว
     private boolean ground = true;
@@ -38,6 +39,7 @@ public class Player {
     public void update(boolean left, boolean right, boolean jump, int worldWidth,
                        java.util.List<Platform> platforms) {
 
+        mutation.update();
         if(ground && support!=null){
             if(support.isSolid()) {x+=support.getDeltaX();y+=support.getDeltaY();}
             else {ground=false;support=null;}
@@ -103,9 +105,10 @@ public class Player {
     }
 // Damage is absorbed by armor first.
     public void hurt(int amount) {
-        if(isDashing())return;
+        if(isDashing() || amount<=0)return;
         int blocked = Math.min(armor, amount);
         armor -= blocked;
+        mutation.absorb(blocked,armor);
         hp = Math.max(0, hp - (amount - blocked));
     }
 
@@ -148,6 +151,8 @@ public class Player {
         return hp;
     }
 
+    public MutationArmor getMutationArmor(){return mutation;}
+    public boolean releaseMutation(){return !isDead() && armor>0 && mutation.release();}
     public int getArmor() {
         return armor;
     }
@@ -175,6 +180,7 @@ public class Player {
         return hp <= 0;
     }
 }
+
 
 
 

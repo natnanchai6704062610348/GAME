@@ -1,6 +1,6 @@
 import java.awt.*;
 /** Boss state machine uses simulation ticks, so shop pause also pauses attacks. */
-public final class MutantBoss extends Zombie implements BossCombat {
+public final class MutantBoss extends Boss {
     public enum Attack { CHASE, WARN_CHARGE, CHARGE, WARN_SLAM, LEAP, SHOCK, RECOVER }
     private static final BossSpriteAnimation ART=new BossSpriteAnimation();
     private long hurtUntil,deathStarted;
@@ -34,8 +34,8 @@ public final class MutantBoss extends Zombie implements BossCombat {
     @Override public void update(Player p){
         if(dead())return;
         switch(attack){
-            case CHASE: double previous=x;super.update(p);walkDistance+=Math.abs(x-previous);break;
-            case CHARGE: x+=direction*(hp<maxHp/2?12:9);break;
+            case CHASE: double previous=x;pursue(p);walkDistance+=Math.abs(x-previous);break;
+            case CHARGE: x+=direction*(isEnraged()?12:9);break;
             case LEAP: double t=(40-ticks+1)/40.0;x=leapStart+(targetX-leapStart)*t;break;
             default: break;
         }
@@ -51,7 +51,7 @@ public final class MutantBoss extends Zombie implements BossCombat {
             case WARN_SLAM: leapStart=x;enter(Attack.LEAP,40);break;
             case LEAP: enter(Attack.SHOCK,25);break;
             case SHOCK: slamNext=false;enter(Attack.RECOVER,55);break;
-            case RECOVER: enter(Attack.CHASE,hp<maxHp/2?35:65);break;
+            case RECOVER: enter(Attack.CHASE,isEnraged()?35:65);break;
         }
     }
     @Override public int getY(){
@@ -91,6 +91,7 @@ public final class MutantBoss extends Zombie implements BossCombat {
         if(attack==Attack.WARN_SLAM)g.drawString("JUMP TO DODGE!",sx-10,sy-24);
     }
 }
+
 
 
 

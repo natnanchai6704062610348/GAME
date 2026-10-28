@@ -189,6 +189,7 @@ public class GamePanel extends JPanel {
 
         }
 
+        if(code==KeyEvent.VK_F)releaseMutation();
         if(code==KeyEvent.VK_E)pickUpNearbyWeapon();
 
         if(code==KeyEvent.VK_R)weapons[selected].reload(System.currentTimeMillis());
@@ -203,6 +204,19 @@ public class GamePanel extends JPanel {
 
     }
 
+    private void releaseMutation(){
+        if(!player.releaseMutation()){message("MUTATION NOT READY");return;}
+        double cx=player.getX()+player.getWidth()/2.0,cy=player.getY()+player.getHeight()/2.0;
+        for(Zombie z:zombies){
+            double closestX=Math.max(z.getX(),Math.min(cx,z.getX()+z.getWidth())),closestY=Math.max(z.getY(),Math.min(cy,z.getY()+z.getHeight()));
+            if(!z.dead() && Math.hypot(closestX-cx,closestY-cy)<=MutationArmor.RADIUS){
+                z.hurt(MutationArmor.DAMAGE);
+                if(!(z instanceof Boss))z.knockBackFrom(cx,110,stage.worldWidth);
+                zombieAnimations.computeIfAbsent(z,key->new ZombieAnimation()).playHurt();
+            }
+        }
+        message("BIO BURST!");
+    }
     private void buyGun(int index){
         if(unlockedWeapons[index]){selected=index;message("EQUIPPED "+weapons[index].name);return;}
         if(credits<GUN_PRICES[index]){message("NOT ENOUGH CREDITS");return;}
@@ -635,7 +649,12 @@ public class GamePanel extends JPanel {
 
         int px=player.getX()-camera,py=player.getY();
 
-        if(!player.isDead())PlayerAimRig.drawArm(g,PlayerAimRig.solve(player,mouseAim,camera),camera,true,player.isFacingRight());
+        BioArmorVisuals.drawAura(g,player,camera);
+        if(!player.isDead()){
+            PlayerAimRig.Pose rearPose=PlayerAimRig.solve(player,mouseAim,camera);
+            PlayerAimRig.drawArm(g,rearPose,camera,true,player.isFacingRight());
+            BioArmorVisuals.drawForearm(g,player,rearPose,camera,true);
+        }
         if(playerAnimation.getCurrentFrame()!=null){
 
             playerAnimation.draw(g,player,camera);
@@ -653,6 +672,7 @@ public class GamePanel extends JPanel {
         }
 
         drawEquippedWeapon(g,px,py);
+        BioArmorVisuals.drawRelease(g,player,camera);
         if(System.currentTimeMillis()-lastFireEffect<60){
             Graphics2D flash=(Graphics2D)g.create();flash.translate(shotX-camera,shotY);flash.rotate(shotAngle);
             flash.setColor(new Color(255,135,20,175));flash.fillOval(-5,-8,24,16);
@@ -765,7 +785,7 @@ public class GamePanel extends JPanel {
 
 
     private void drawPlayerHUD(Graphics2D g){
-        int width=260,height=156,x=getWidth()-272,y=12;
+        int width=260,height=198,x=getWidth()-272,y=12;
         Graphics2D hud=(Graphics2D)g.create();
         hud.setColor(new Color(10,12,20,220));hud.fillRoundRect(x,y,width,height,12,12);
         hud.setColor(new Color(75,92,110));hud.setStroke(new BasicStroke(2));hud.drawRoundRect(x,y,width,height,12,12);
@@ -782,12 +802,18 @@ public class GamePanel extends JPanel {
         hud.setColor(new Color(27,45,65));hud.fillRoundRect(x+15,y+72,230,12,4,4);
         hud.setColor(armorColor);hud.fillRoundRect(x+15,y+72,230*armor/100,12,4,4);
         if(armor==0){hud.setFont(new Font(Font.MONOSPACED,Font.BOLD,10));hud.setColor(armorColor);hud.drawString("EMPTY",x+85,y+64);hud.setFont(new Font(Font.MONOSPACED,Font.BOLD,14));}
+        MutationArmor mutation=player.getMutationArmor();int charge=mutation.getCharge();
+        hud.setColor(new Color(190,125,255));hud.drawString("MUTATION",x+15,y+107);
+        hud.setColor(Color.WHITE);hud.drawString(charge+" / 100",x+155,y+107);
+        hud.setColor(new Color(46,26,65));hud.fillRoundRect(x+15,y+114,230,12,4,4);
+        hud.setColor(mutation.isReady()?new Color(225,170,255):new Color(155,85,235));hud.fillRoundRect(x+15,y+114,230*charge/100,12,4,4);
+        if(mutation.isReady()){hud.setColor(new Color(220,160,255));hud.drawRoundRect(x+111,y+94,24,16,4,4);hud.drawString("F",x+119,y+107);}
         Weapon weapon=weapons[selected];int ammo=Math.max(0,weapon.ammo()),maxAmmo=Math.max(1,weapon.magazine);
-        hud.setColor(new Color(255,200,80));hud.drawString(weapon.name,x+15,y+107);
-        hud.setColor(Color.WHITE);hud.drawString(ammo+" / "+maxAmmo,x+155,y+107);
-        hud.setColor(new Color(70,55,25));hud.fillRoundRect(x+15,y+114,230,12,4,4);
-        hud.setColor(new Color(255,190,50));hud.fillRoundRect(x+15,y+114,230*Math.min(ammo,maxAmmo)/maxAmmo,12,4,4);
-        if(weapon.isReloading()){hud.setColor(Color.YELLOW);hud.setFont(new Font(Font.MONOSPACED,Font.BOLD,12));hud.drawString("RELOADING",x+15,y+146);}
+        hud.setColor(new Color(255,200,80));hud.drawString(weapon.name,x+15,y+149);
+        hud.setColor(Color.WHITE);hud.drawString(ammo+" / "+maxAmmo,x+155,y+149);
+        hud.setColor(new Color(70,55,25));hud.fillRoundRect(x+15,y+156,230,12,4,4);
+        hud.setColor(new Color(255,190,50));hud.fillRoundRect(x+15,y+156,230*Math.min(ammo,maxAmmo)/maxAmmo,12,4,4);
+        if(weapon.isReloading()){hud.setColor(Color.YELLOW);hud.setFont(new Font(Font.MONOSPACED,Font.BOLD,12));hud.drawString("RELOADING",x+15,y+188);}
         hud.dispose();
     }
     private void drawEquippedWeapon(Graphics2D g,int px,int py){
@@ -795,10 +821,13 @@ public class GamePanel extends JPanel {
         if(selected<0 || selected>=weaponImages.length || weaponImages[selected]==null)return;
         PlayerAimRig.Pose pose=PlayerAimRig.solve(player,mouseAim,camera);
         PlayerAimRig.drawArm(g,pose,camera,false,player.isFacingRight());
+        BioArmorVisuals.drawForearm(g,player,pose,camera,false);
+        BioArmorVisuals.drawShoulder(g,player,pose,camera);
         Graphics2D gun=(Graphics2D)g.create();gun.setRenderingHint(RenderingHints.KEY_INTERPOLATION,RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
         gun.translate(pose.handX-camera,pose.handY);gun.rotate(pose.angle);
         if(Math.cos(pose.angle)<0)gun.scale(1,-1);
         gun.drawImage(weaponImages[selected],-GUN_WIDTHS[selected]/4,-GUN_HEIGHTS[selected]/2,GUN_WIDTHS[selected],GUN_HEIGHTS[selected],null);gun.dispose();
     }
 }
+
 
