@@ -739,7 +739,7 @@ public class GamePanel extends JPanel {
         g.setColor(Color.DARK_GRAY);g.fillRect(28,90,320,5);
         g.setColor(stage.accent.brighter());g.fillRect(28,90,Math.min(320,player.getX()*320/(stage.worldWidth-170)),5);
 
-        if(System.currentTimeMillis()<bannerUntil){g.setColor(Color.YELLOW);g.setFont(new Font(Font.MONOSPACED,Font.BOLD,26));g.drawString(banner,sw/2-140,143);}
+        if(System.currentTimeMillis()<bannerUntil){g.setColor(Color.YELLOW);g.setFont(new Font(Font.MONOSPACED,Font.BOLD,18));g.drawString(banner,24,134);}
 
         if(shopOpen)drawShop(g);
         if(finished){
@@ -765,57 +765,31 @@ public class GamePanel extends JPanel {
 
 
     private void drawPlayerHUD(Graphics2D g){
-
-        int width=260,height=112,x=getWidth()-272,y=12;
-
+        int width=260,height=156,x=getWidth()-272,y=12;
         Graphics2D hud=(Graphics2D)g.create();
-
-        hud.setColor(new Color(10,12,20,210));hud.fillRoundRect(x,y,width,height,12,12);
-
-        hud.setColor(new Color(140,55,55));hud.setStroke(new BasicStroke(2));
-
-        hud.drawRoundRect(x,y,width,height,12,12);
-
-        hud.setFont(new Font(Font.MONOSPACED,Font.BOLD,15));
-
+        hud.setColor(new Color(10,12,20,220));hud.fillRoundRect(x,y,width,height,12,12);
+        hud.setColor(new Color(75,92,110));hud.setStroke(new BasicStroke(2));hud.drawRoundRect(x,y,width,height,12,12);
+        hud.setFont(new Font(Font.MONOSPACED,Font.BOLD,14));
         int hp=Math.max(0,Math.min(100,player.getHp()));
-
-        hud.setColor(new Color(255,100,105));hud.drawString("HP",x+15,y+25);
-
-        hud.setColor(Color.WHITE);hud.drawString(hp+" / 100",x+155,y+25);
-
-        hud.setColor(new Color(70,25,30));hud.fillRect(x+15,y+34,230,15);
-
-        hud.setColor(hp>30?new Color(235,55,65):new Color(255,145,30));
-
-        hud.fillRect(x+15,y+34,230*hp/100,15);
-
-        Weapon weapon=weapons[selected];
-
-        int ammo=Math.max(0,weapon.ammo());int maxAmmo=Math.max(1,weapon.magazine);
-
-        hud.setColor(new Color(255,200,80));hud.drawString(weapon.name,x+15,y+76);
-
-        hud.setColor(Color.WHITE);hud.drawString(ammo+" / "+maxAmmo,x+155,y+76);
-
-        hud.setColor(new Color(70,55,25));hud.fillRect(x+15,y+85,230,12);
-
-        hud.setColor(new Color(255,190,50));hud.fillRect(x+15,y+85,230*Math.min(ammo,maxAmmo)/maxAmmo,12);
-
-        if(weapon.isReloading()){
-
-            hud.setColor(Color.YELLOW);hud.drawString("RELOADING",x+115,y+108);
-
-        }
-
+        int armor=Math.max(0,Math.min(100,player.getArmor()));
+        hud.setColor(new Color(255,100,105));hud.drawString("HP",x+15,y+23);
+        hud.setColor(Color.WHITE);hud.drawString(hp+" / 100",x+155,y+23);
+        hud.setColor(new Color(70,25,30));hud.fillRoundRect(x+15,y+30,230,12,4,4);
+        hud.setColor(hp>30?new Color(235,55,65):new Color(255,145,30));hud.fillRoundRect(x+15,y+30,230*hp/100,12,4,4);
+        Color armorColor=armor==0?new Color(145,153,165):armor<=20?new Color(255,178,70):new Color(80,185,255);
+        hud.setColor(armorColor);hud.drawString("ARMOR",x+15,y+65);
+        hud.setColor(Color.WHITE);hud.drawString(armor+" / 100",x+155,y+65);
+        hud.setColor(new Color(27,45,65));hud.fillRoundRect(x+15,y+72,230,12,4,4);
+        hud.setColor(armorColor);hud.fillRoundRect(x+15,y+72,230*armor/100,12,4,4);
+        if(armor==0){hud.setFont(new Font(Font.MONOSPACED,Font.BOLD,10));hud.setColor(armorColor);hud.drawString("EMPTY",x+85,y+64);hud.setFont(new Font(Font.MONOSPACED,Font.BOLD,14));}
+        Weapon weapon=weapons[selected];int ammo=Math.max(0,weapon.ammo()),maxAmmo=Math.max(1,weapon.magazine);
+        hud.setColor(new Color(255,200,80));hud.drawString(weapon.name,x+15,y+107);
+        hud.setColor(Color.WHITE);hud.drawString(ammo+" / "+maxAmmo,x+155,y+107);
+        hud.setColor(new Color(70,55,25));hud.fillRoundRect(x+15,y+114,230,12,4,4);
+        hud.setColor(new Color(255,190,50));hud.fillRoundRect(x+15,y+114,230*Math.min(ammo,maxAmmo)/maxAmmo,12,4,4);
+        if(weapon.isReloading()){hud.setColor(Color.YELLOW);hud.setFont(new Font(Font.MONOSPACED,Font.BOLD,12));hud.drawString("RELOADING",x+15,y+146);}
         hud.dispose();
-
     }
-
-
-
-    
-    
     private void drawEquippedWeapon(Graphics2D g,int px,int py){
         if(player.isDead()){PlayerAimRig.drawFallenArms(g,player,camera);return;}
         if(selected<0 || selected>=weaponImages.length || weaponImages[selected]==null)return;
@@ -827,3 +801,4 @@ public class GamePanel extends JPanel {
         gun.drawImage(weaponImages[selected],-GUN_WIDTHS[selected]/4,-GUN_HEIGHTS[selected]/2,GUN_WIDTHS[selected],GUN_HEIGHTS[selected],null);gun.dispose();
     }
 }
+
