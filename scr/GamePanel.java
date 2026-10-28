@@ -12,11 +12,16 @@ import java.io.File;
 public class GamePanel extends JPanel {
     
     private final boolean bossPractice;
+    private final MouseAim mouseAim=new MouseAim();
+    private double shotX,shotY,shotAngle;
+    private static final int[] GUN_WIDTHS={38,52,65,62,78};
+    private static final int[] GUN_HEIGHTS={25,29,26,29,28};
     private int currentStage;
     private final JFrame frame;
     private BufferedImage background;
     private final Stage stage;
     private final List<Platform> platforms;
+    private final List<StageTrap> traps;
     private final List<SupplyPickup> supplies;
     private final List<ExplosiveBarrel> barrels=new ArrayList<>();
     private final Set<Integer> heldKeys=new HashSet<>();
@@ -39,7 +44,7 @@ public class GamePanel extends JPanel {
     private javax.swing.Timer timer;
     private boolean left,right,jump,fire,won,lost,finished,bossSpawned;
     private int selected=0,spawned=0,killed=0,credits=0,camera=0;
-    private long lastSpawn=0,lastHazardHit=0,lastFire=0;
+    private long lastSpawn=0,lastFire=0;
     private String banner="";
     private long bannerUntil=0;
     private static final int GROUND=470;
@@ -95,7 +100,7 @@ public class GamePanel extends JPanel {
 
         weaponImages[4] = loadSprite("GUN/gun5.png");
 
-        this.frame=frame;stage=Stage.get(level);platforms=stage.getPlatforms();supplies=stage.getSupplies();setFocusable(true);setBackground(stage.sky);
+        this.frame=frame;stage=Stage.get(level);platforms=stage.getPlatforms();traps=bossPractice?Collections.emptyList():stage.getTraps();supplies=stage.getSupplies();setFocusable(true);setBackground(stage.sky);
         for(int x=900;x<stage.worldWidth-300;x+=850)barrels.add(new ExplosiveBarrel(x));
         currentStage = level;
         loadBackground(level);
@@ -113,10 +118,14 @@ public class GamePanel extends JPanel {
                 (weaponImages[i] == null ? "FAILED" : "LOADED"));
         }
 
-        addMouseListener(new MouseAdapter(){@Override public void mousePressed(MouseEvent e){if(SwingUtilities.isLeftMouseButton(e) && !shopOpen)fire=true;}
-
-        @Override public void mouseReleased(MouseEvent e){if(SwingUtilities.isLeftMouseButton(e))fire=false;}});
-
+        MouseAdapter mouse=new MouseAdapter(){
+            private void aim(MouseEvent e){if(!shopOpen && !finished){mouseAim.move(e.getX(),e.getY());player.faceTowards(mouseAim.worldX(camera));}}
+            @Override public void mouseMoved(MouseEvent e){aim(e);}
+            @Override public void mouseDragged(MouseEvent e){aim(e);}
+            @Override public void mousePressed(MouseEvent e){aim(e);if(SwingUtilities.isLeftMouseButton(e) && !shopOpen && !finished)fire=true;}
+            @Override public void mouseReleased(MouseEvent e){if(SwingUtilities.isLeftMouseButton(e))fire=false;}
+        };
+        addMouseListener(mouse);addMouseMotionListener(mouse);
         if(bossPractice){zombies.add(BossFactory.create(650,level,stage.worldWidth));bossSpawned=true;message("BOSS PRACTICE: "+stage.getBossName());}
         timer=new javax.swing.Timer(16,e->tick());timer.start();
 
@@ -240,6 +249,8 @@ public class GamePanel extends JPanel {
 
         if(finished || shopOpen){repaint();return;}
 
+        for(Platform platform:platforms)platform.update();
+        for(StageTrap trap:traps)trap.update();
         player.update(left,right,jump,stage.worldWidth,platforms);
 
         for (SupplyPickup supply : supplies) {
@@ -252,30 +263,23 @@ public class GamePanel extends JPanel {
                 }
             }
         }
-        playerAnimation.update(player,fire && !weapons[selected].isReloading());
+
 
         camera=Math.max(0,Math.min(stage.worldWidth-getWidth(),player.getX()-getWidth()/3));
+        if(mouseAim.isActive())player.faceTowards(mouseAim.worldX(camera));
+        playerAnimation.update(player,fire && !weapons[selected].isReloading());
 
         for(Weapon w:weapons)w.update(now);
 
         if(fire){Weapon w=weapons[selected];if(w.shoot(now)){
 
+            PlayerAimRig.Pose pose=PlayerAimRig.solve(player,mouseAim,camera);shotAngle=pose.angle;
+            shotX=pose.muzzleX(GUN_WIDTHS[selected]);shotY=pose.muzzleY(GUN_WIDTHS[selected]);
+            lastFireEffect=now;
             for(int k=0;k<w.pellets;k++){
-
-                int spread=w.pellets==1?0:(k-w.pellets/2)*7;
-
-                int origin=player.isFacingRight()?player.getX()+player.getWidth():player.getX()-12;
-
-                lastFireEffect = System.currentTimeMillis();
-                bullets.add(new Bullet(
-                    origin,
-                    player.getY()+45+spread,
-                    player.isFacingRight()?15:-15,
-                    w.getDamage()
-                ));
-
+                double angle=shotAngle+(k-(w.pellets-1)/2.0)*.075;
+                bullets.add(new Bullet(shotX,shotY,Math.cos(angle)*15,Math.sin(angle)*15,w.getDamage()));
             }
-
             lastFire=now;
 
         }else if(w.ammo()==0){w.reload(now);}
@@ -321,7 +325,7 @@ public class GamePanel extends JPanel {
 
             }}
 
-            if(hit || b.getX()<0 || b.getX()>stage.worldWidth)it.remove();
+            if(hit || b.outside(stage.worldWidth,Math.max(640,getHeight())))it.remove();
 
         }
 
@@ -383,27 +387,13 @@ public class GamePanel extends JPanel {
             }
         }
         zombies.addAll(reinforcements);
-        if(stage.hazardType>1 && now-lastHazardHit>850){
-
-            for(int i=0;i<(stage.worldWidth-520)/690;i++){
-
-                int hx=520+i*690;
-
-                if(player.getX()+player.getWidth()>hx && player.getX()<hx+110 && player.getY()+player.getHeight()>=GROUND-4){
-
-                    if((now/1400+i)%3!=0){player.hurt(stage.level<5?5:9);lastHazardHit=now;message("HAZARD DAMAGE!");}break;
-
-                }
-
-            }
-
-        }
+        for(StageTrap trap:traps)if(trap.tryHit(player))playerAnimation.playHurt();
 
         // Remove drops after 20 seconds to keep the world uncluttered.
 
         weaponDrops.removeIf(drop -> drop.isExpired(now));
 
-        if(player.getHp()<=0){lost=true;finished=true;}
+        if(player.getHp()<=0){playerAnimation.playDeath();lost=true;finished=true;}
 
         if(bossSpawned && zombies.isEmpty() && (bossPractice || player.getX()>=stage.worldWidth-170)){
 
@@ -628,17 +618,7 @@ public class GamePanel extends JPanel {
 
         for(int x=-(camera%60);x<sw;x+=60){g.setColor(new Color(90,92,95));g.fillRect(x,GROUND+42,34,3);}
 
-        if(stage.hazardType>1)for(int i=0;i<(stage.worldWidth-520)/690;i++){
-
-            int hx=520+i*690-camera;if(hx<-140||hx>sw+100)continue;
-
-            boolean active=(System.currentTimeMillis()/1400+i)%3!=0;
-
-            g.setColor(active?stage.accent:new Color(65,70,75));g.fillRect(hx,GROUND-7,110,11);
-
-            if(active){g.setColor(stage.accent.brighter());for(int a=0;a<4;a++)g.fillRect(hx+12+a*26,GROUND-20,7,12);}
-
-        }
+        for(StageTrap trap:traps)trap.draw(g,camera);
 
         if(bossSpawned && zombies.isEmpty()){
 
@@ -655,6 +635,7 @@ public class GamePanel extends JPanel {
 
         int px=player.getX()-camera,py=player.getY();
 
+        if(!player.isDead())PlayerAimRig.drawArm(g,PlayerAimRig.solve(player,mouseAim,camera),camera,true,player.isFacingRight());
         if(playerAnimation.getCurrentFrame()!=null){
 
             playerAnimation.draw(g,player,camera);
@@ -672,43 +653,14 @@ public class GamePanel extends JPanel {
         }
 
         drawEquippedWeapon(g,px,py);
-        if(System.currentTimeMillis() - lastFireEffect < 60){
-
-            Graphics2D g2 = (Graphics2D)g.create();
-
-            int fx;
-            int fy = player.getY() + 62;
-
-            if(player.isFacingRight()){
-                fx = player.getX() + 65 - camera;
-            }else{
-                fx = player.getX() - 15 - camera;
-            }
-
-
-            // แสงใหญ่ด้านนอก
-            g2.setColor(new Color(255,150,20,180));
-            g2.fillOval(
-                fx,
-                fy,
-                18,
-                12
-            );
-
-
-            // แกนกลางสีเหลือง
-            g2.setColor(new Color(255,230,80));
-            g2.fillOval(
-                fx + 5,
-                fy + 3,
-                10,
-                7
-            );
-
-
-            g2.dispose();
+        if(System.currentTimeMillis()-lastFireEffect<60){
+            Graphics2D flash=(Graphics2D)g.create();flash.translate(shotX-camera,shotY);flash.rotate(shotAngle);
+            flash.setColor(new Color(255,135,20,175));flash.fillOval(-5,-8,24,16);
+            flash.setColor(new Color(255,240,130));flash.fillOval(0,-4,14,8);flash.dispose();
         }
-
+        if(mouseAim.isActive() && !shopOpen && !finished){
+            Graphics2D cross=(Graphics2D)g.create();int mx=mouseAim.getScreenX(),my=mouseAim.getScreenY();cross.setColor(new Color(145,250,220));cross.setStroke(new BasicStroke(1));cross.drawOval(mx-7,my-7,14,14);cross.drawLine(mx-12,my,mx+12,my);cross.drawLine(mx,my-12,mx,my+12);cross.dispose();
+        }
         //if(System.currentTimeMillis()-lastFire<80){g.setColor(Color.YELLOW);g.fillOval(px+(player.isFacingRight()?80:-26),py+40,18,18);}
 
         for(Zombie z:zombies){
@@ -769,7 +721,7 @@ public class GamePanel extends JPanel {
         drawWeaponDrops(g);
         for (SupplyPickup supply : supplies) supply.draw(g,camera,System.currentTimeMillis());
 
-        g.setColor(Color.YELLOW);for(Bullet b:bullets)g.fillRect(b.getX()-camera,b.getY(),b.getWidth(),b.getHeight());
+        for(Bullet b:bullets)b.draw(g,camera);
 
         drawPlayerHUD(g);
         for(Zombie boss:zombies)if(boss instanceof BossCombat){
@@ -864,123 +816,14 @@ public class GamePanel extends JPanel {
 
     
     
-    private void drawEquippedWeapon(Graphics2D g, int px, int py) {
-
-        if (selected < 0 || selected >= weaponImages.length) return;
-
-        BufferedImage gun = weaponImages[selected];
-        if (gun == null) return;
-
-        Graphics2D g2 = (Graphics2D) g.create();
-
-        g2.setRenderingHint(
-            RenderingHints.KEY_INTERPOLATION,
-            RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR
-        );
-
-        // ขนาดปืนแต่ละชนิด
-        int[] widths = {38, 52, 65, 62, 78};
-        int[] heights = {25, 29, 26, 29, 28};
-
-        int gunW = widths[selected];
-        int gunH = heights[selected];
-
-        long now = System.currentTimeMillis();
-        long shotElapsed = now - lastFire;
-
-        // ตำแหน่งมือโดยประมาณ
-        int handX = px + player.getWidth() / 2 + 8;
-        int handY = py + 53;
-
-        double offsetX = 0;
-        double offsetY = 0;
-        double angle = 0;
-
-        // หายใจขณะยืนนิ่ง
-        if (!player.isMoving() && player.isGrounded()) {
-            offsetY = Math.sin(now / 260.0) * 1.5;
-        }
-
-        // โยกปืนขณะเดิน
-        if (player.isMoving() && player.isGrounded()) {
-            offsetY = Math.sin(now / 105.0) * 3;
-            angle = Math.sin(now / 160.0) * 0.035;
-        }
-
-        // ยกปืนเมื่อกระโดด
-        if (player.isJumping()) {
-            offsetY = -5;
-            angle = -0.08;
-        }
-
-        // แรงสะท้อนปืนหลังยิง (120ms)
-        boolean recoiling = shotElapsed >= 0 && shotElapsed < 120;
-        
-        boolean aiming = fire &&
-            !weapons[selected].isReloading();
-
-        // พักปืนเมื่อไม่ได้กดยิง
-        if (!aiming) {
-            angle += Math.toRadians(55);
-            offsetY += 17;
-            offsetX -= 5;
-        } else {
-            // ยกปืนกลับขึ้นมาในท่าเล็ง
-            angle += 0;
-            offsetY -= 2;
-        }
-
-        if (aiming && recoiling) {
-            double progress = shotElapsed / 120.0;
-            double recoil = 1.0 - progress;
-
-            offsetX -= 9 * recoil;
-            offsetY -= 3 * recoil;
-            angle -= 0.12 * recoil;
-        }
-
-        // เอียงปืนตอนรีโหลด
-        if (weapons[selected].isReloading()) {
-            offsetY += 9;
-            angle += 0.30;
-        }
-
-        int direction = player.isFacingRight() ? 1 : -1;
-
-        // ใช้จุดมือเป็นแกนหมุน
-        int anchorX = player.isFacingRight()
-            ? handX
-            : px + player.getWidth() - (handX - px);
-
-        double drawX = direction * offsetX;
-        double drawY = offsetY;
-
-        g2.translate(anchorX + drawX, handY + drawY);
-
-        if (!player.isFacingRight()) {
-            g2.scale(-1, 1);
-        }
-
-        g2.rotate(angle);
-
-        // วาดปืนโดยให้ด้ามอยู่ใกล้จุดมือ
-        int gunX = -gunW / 4;
-        int gunY = -gunH / 2;
-
-        g2.drawImage(gun, gunX, gunY, gunW, gunH, null);
-
-        g2.dispose();
+    private void drawEquippedWeapon(Graphics2D g,int px,int py){
+        if(player.isDead()){PlayerAimRig.drawFallenArms(g,player,camera);return;}
+        if(selected<0 || selected>=weaponImages.length || weaponImages[selected]==null)return;
+        PlayerAimRig.Pose pose=PlayerAimRig.solve(player,mouseAim,camera);
+        PlayerAimRig.drawArm(g,pose,camera,false,player.isFacingRight());
+        Graphics2D gun=(Graphics2D)g.create();gun.setRenderingHint(RenderingHints.KEY_INTERPOLATION,RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        gun.translate(pose.handX-camera,pose.handY);gun.rotate(pose.angle);
+        if(Math.cos(pose.angle)<0)gun.scale(1,-1);
+        gun.drawImage(weaponImages[selected],-GUN_WIDTHS[selected]/4,-GUN_HEIGHTS[selected]/2,GUN_WIDTHS[selected],GUN_HEIGHTS[selected],null);gun.dispose();
     }
-
-
-
-
-
 }
-
-
-
-
-
-
-

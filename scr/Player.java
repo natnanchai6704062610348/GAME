@@ -17,6 +17,7 @@ public class Player {
     // สถานะการเคลื่อนไหว
     private boolean ground = true;
     private boolean jumpHeld;
+    private Platform support;
     private int jumpsUsed;
     private int dashTicks, dashCooldown, dashDirection;
     private boolean facingRight = true;
@@ -37,6 +38,10 @@ public class Player {
     public void update(boolean left, boolean right, boolean jump, int worldWidth,
                        java.util.List<Platform> platforms) {
 
+        if(ground && support!=null){
+            if(support.isSolid()) {x+=support.getDeltaX();y+=support.getDeltaY();}
+            else {ground=false;support=null;}
+        }
         if(dashCooldown>0)dashCooldown--;
         if(dashTicks>0){x+=dashDirection*13;dashTicks--;}
         moving = left != right;
@@ -73,13 +78,15 @@ public class Player {
         vy += 0.64;
         double nextY = y + vy;
         ground = false;
+        support = null;
         if (vy >= 0) {
             double landingY = 470;
+            Platform landingPlatform = null;
             for (Platform platform : platforms) {
-                if (platform.overlaps(x, width)
-                        && previousBottom <= platform.getY() + 0.001
+                if (platform.isSolid() && platform.overlaps(x, width)
+                        && previousBottom <= Math.max(platform.getY(),platform.getPreviousY()) + 0.001
                         && nextY + height >= platform.getY()) {
-                    landingY = Math.min(landingY, platform.getY());
+                    if(platform.getY()<landingY){landingY=platform.getY();landingPlatform=platform;}
                 }
             }
             if (nextY + height >= landingY && previousBottom <= landingY + 0.001) {
@@ -87,6 +94,8 @@ public class Player {
                 vy = 0;
                 ground = true;
                 jumpsUsed = 0;
+                support=landingPlatform;
+                if(support!=null)support.onLand();
             }
         }
         if (nextY < 0) { nextY = 0; vy = Math.max(0, vy); }
@@ -143,6 +152,7 @@ public class Player {
         return armor;
     }
 
+    public void faceTowards(double worldX){double center=x+width/2.0;if(Math.abs(worldX-center)>1)facingRight=worldX>center;}
     public boolean isFacingRight() {
         return facingRight;
     }
@@ -156,6 +166,7 @@ public class Player {
         return ground;
     }
 
+    public double getVerticalVelocity(){return vy;}
     public boolean isJumping() {
         return !ground;
     }
@@ -164,6 +175,9 @@ public class Player {
         return hp <= 0;
     }
 }
+
+
+
 
 
 

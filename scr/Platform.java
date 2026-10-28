@@ -1,11 +1,19 @@
 import java.awt.*;
 
 /** One-way ledge: actors may jump through it and land on its upper surface. */
-public final class Platform {
-    private final int x, y, width;
+public class Platform {
+    protected int x,y;
+    protected final int width;
+    private int previousX,previousY;
     public Platform(int x, int y, int width) {
-        this.x = x; this.y = y; this.width = width;
+        this.x = x; this.y = y; this.width = width;previousX=x;previousY=y;
     }
+    public void update(){previousX=x;previousY=y;}
+    public int getDeltaX(){return x-previousX;}
+    public int getDeltaY(){return y-previousY;}
+    public int getPreviousY(){return previousY;}
+    public boolean isSolid(){return true;}
+    public void onLand(){}
     public int getX() { return x; }
     public int getY() { return y; }
     public int getWidth() { return width; }
@@ -25,3 +33,4 @@ public final class Platform {
         g.setStroke(new BasicStroke(1));
     }
 }
+

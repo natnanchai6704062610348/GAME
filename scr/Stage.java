@@ -19,10 +19,19 @@ public class Stage {
         java.util.List<Platform> result = new java.util.ArrayList<>();
         for (int base = 300; base + 650 < worldWidth - 170; base += 1000) {
             result.add(new Platform(base, 380, 220));
-            result.add(new Platform(base + 180, 290, 220));
-            result.add(new Platform(base + 360, 200, 290));
+            int group=(base-300)/1000;
+            result.add(new MovingPlatform(base+180,290,220,group%2==0?28:18,group%2!=0));
+            result.add(group%2==0?new CrumblingPlatform(base+360,200,290):new Platform(base+360,200,290));
         }
         return java.util.Collections.unmodifiableList(result);
+    }
+    public java.util.List<StageTrap> getTraps(){
+        java.util.List<StageTrap> result=new java.util.ArrayList<>();
+        StageTrap.Type[] types=StageTrap.Type.values();int index=0;
+        for(int x=1050;x<worldWidth-1300;x+=760){
+            result.add(new StageTrap(x,types[(index+level-1)%types.length],level,index*47));index++;
+        }
+        return result;
     }
     public java.util.List<SupplyPickup> getSupplies() {
         java.util.List<SupplyPickup> result = new java.util.ArrayList<>();
@@ -45,5 +54,6 @@ public class Stage {
         i=Math.max(1,Math.min(10,i));return new Stage(i,names[i-1],features[i-1],skies[i-1],accents[i-1],i);
     }
 }
+
 
 
