@@ -41,8 +41,19 @@ public class LevelPanel extends JPanel {
         return null;
     }
     private void bind(String key,Runnable task){getInputMap(WHEN_ANCESTOR_OF_FOCUSED_COMPONENT).put(KeyStroke.getKeyStroke(key),key);getActionMap().put(key,new AbstractAction(){public void actionPerformed(ActionEvent e){task.run();}});}
-    private void select(int level){selected=level;boolean open=level<=unlocked;launch.setEnabled(open);launch.setText(open?"DEPLOY TO STAGE "+String.format("%02d",level)+"  >":"LOCKED  /  CLEAR STAGE "+(level-1));repaint();}
-    private void startSelected(){if(selected>unlocked || frame==null)return;frame.setContentPane(new GamePanel(frame,selected));frame.revalidate();frame.repaint();}
+    private void select(int level){
+        selected=level;
+        boolean open=level<=unlocked;
+        launch.setEnabled(open);
+        launch.setText(open?"DEPLOY TO STAGE "+String.format("%02d",level)+"  >":"LOCKED  /  CLEAR STAGE "+(level-1));
+        repaint();
+    }
+    private void startSelected(){
+        if(selected>unlocked || frame==null)
+            return;
+            frame.setContentPane(new GamePanel(frame,selected));
+            frame.revalidate();
+            frame.repaint();}
     private void back(){if(frame==null)return;frame.setContentPane(new StartPanel(frame));frame.revalidate();frame.repaint();}
     private void style(JButton b,boolean primary){
         b.setFont(new Font("SansSerif",Font.BOLD,13));b.setForeground(primary?INK:new Color(215,225,231));b.setBackground(primary?MINT:new Color(30,40,51));

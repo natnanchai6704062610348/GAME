@@ -122,12 +122,21 @@ public class GamePanel extends JPanel {
             private void aim(MouseEvent e){if(!shopOpen && !finished){mouseAim.move(e.getX(),e.getY());player.faceTowards(mouseAim.worldX(camera));}}
             @Override public void mouseMoved(MouseEvent e){aim(e);}
             @Override public void mouseDragged(MouseEvent e){aim(e);}
-            @Override public void mousePressed(MouseEvent e){aim(e);if(SwingUtilities.isLeftMouseButton(e) && !shopOpen && !finished)fire=true;}
-            @Override public void mouseReleased(MouseEvent e){if(SwingUtilities.isLeftMouseButton(e))fire=false;}
+            @Override public void mousePressed(MouseEvent e){
+                aim(e);
+                if(SwingUtilities.isLeftMouseButton(e) && !shopOpen && !finished)
+                    fire=true;
+                }
+            @Override public void mouseReleased(MouseEvent e){
+                if(SwingUtilities.isLeftMouseButton(e))
+                    fire=false;
+                }
         };
         addMouseListener(mouse);addMouseMotionListener(mouse);
         if(bossPractice){zombies.add(BossFactory.create(650,level,stage.worldWidth));bossSpawned=true;message("BOSS PRACTICE: "+stage.getBossName());}
-        timer=new javax.swing.Timer(16,e->tick());timer.start();
+
+        timer=new javax.swing.Timer(16,e->tick());
+        timer.start();
 
     }
 
@@ -510,7 +519,9 @@ public class GamePanel extends JPanel {
 
     }
 
-    private static boolean intersects(int x,int y,int w,int h,int xx,int yy,int ww,int hh){return x<xx+ww && x+w>xx && y<yy+hh && y+h>yy;}
+    private static boolean intersects(int x,int y,int w,int h,int xx,int yy,int ww,int hh){
+        return x<xx+ww && x+w>xx && y<yy+hh && y+h>yy;
+    }
 
     private void drawCityDetails(Graphics2D g,int sw){
 
